@@ -28,38 +28,62 @@ namespace XafXPODynAssem.Module.Controllers
 
         private void DeployAction_Execute(object sender, SimpleActionExecuteEventArgs e)
         {
-            // Record deploy in schema history
+            // Capture current runtime class names for audit
+            string deployDetails;
             try
             {
-                var history = ObjectSpace.CreateObject<SchemaHistory>();
-                history.Action = SchemaChangeAction.Deploy;
-                history.UserName = SecuritySystem.CurrentUserName;
-                history.Summary = "Schema deployed via Deploy Schema action";
-
-                // Capture current runtime class names
                 var classes = ObjectSpace.GetObjects<CustomClass>()
                     .Cast<CustomClass>()
                     .Where(c => c.Status == CustomClassStatus.Runtime)
                     .Select(c => c.ClassName)
                     .ToList();
-                history.Details = $"Runtime classes: {string.Join(", ", classes)}";
-
-                ObjectSpace.CommitChanges();
+                deployDetails = $"Runtime classes: {string.Join(", ", classes)}";
             }
-            catch (Exception ex)
+            catch
             {
-                Tracing.Tracer.LogError($"Failed to record deploy history: {ex.Message}");
+                deployDetails = "(could not capture class list)";
             }
+
+            var userName = SecuritySystem.CurrentUserName;
 
             _ = Task.Run(async () =>
             {
+                bool success = false;
+                string error = null;
                 try
                 {
                     await SchemaChangeOrchestrator.Instance.ExecuteHotLoadAsync();
+                    success = true;
                 }
                 catch (Exception ex)
                 {
+                    error = ex.Message;
                     Tracing.Tracer.LogError($"Deploy schema failed: {ex.Message}");
+                }
+
+                // Record deploy result in schema history
+                try
+                {
+                    var connStr = XafXPODynAssemModule.RuntimeConnectionString;
+                    if (!string.IsNullOrEmpty(connStr))
+                    {
+                        using var conn = new Microsoft.Data.SqlClient.SqlConnection(connStr);
+                        conn.Open();
+                        using var cmd = new Microsoft.Data.SqlClient.SqlCommand(
+                            @"INSERT INTO [SchemaHistory] ([Oid], [Timestamp], [UserName], [Action], [Summary], [Details])
+                              VALUES (@oid, @ts, @user, @action, @summary, @details)", conn);
+                        cmd.Parameters.AddWithValue("@oid", Guid.NewGuid());
+                        cmd.Parameters.AddWithValue("@ts", DateTime.UtcNow);
+                        cmd.Parameters.AddWithValue("@user", userName ?? "");
+                        cmd.Parameters.AddWithValue("@action", (int)SchemaChangeAction.Deploy);
+                        cmd.Parameters.AddWithValue("@summary", success ? "Schema deployed successfully" : $"Schema deploy failed: {error}");
+                        cmd.Parameters.AddWithValue("@details", deployDetails);
+                        cmd.ExecuteNonQuery();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Tracing.Tracer.LogError($"Failed to record deploy history: {ex.Message}");
                 }
             });
         }
