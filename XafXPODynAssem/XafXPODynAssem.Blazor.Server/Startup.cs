@@ -14,6 +14,7 @@ using Microsoft.OpenApi.Models;
 using XafXPODynAssem.Blazor.Server.Hubs;
 using XafXPODynAssem.Blazor.Server.Services;
 using XafXPODynAssem.Module.BusinessObjects;
+using DevExpress.AIIntegration;
 using XafXPODynAssem.Module.Services;
 
 namespace XafXPODynAssem.Blazor.Server
@@ -143,6 +144,7 @@ namespace XafXPODynAssem.Blazor.Server
             });
 
             services.AddAIServices(Configuration);
+            services.AddDevExpressAI();
 
             services.AddSwaggerGen(c =>
             {
