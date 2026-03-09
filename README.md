@@ -82,7 +82,7 @@ XafXPODynAssem.Blazor.Server/
 
 ## How to Implement (Step by Step)
 
-See [`docs/plans/2026-03-09-xpo-dynamic-assemblies.md`](docs/plans/2026-03-09-xpo-dynamic-assemblies.md) for the full implementation plan with exact code for every task.
+See [`docs/HOW_TO_IMPLEMENT.md`](docs/HOW_TO_IMPLEMENT.md) for a practical guide on adding runtime entity creation to your own XAF+XPO project.
 
 ## Session Handoff
 
