@@ -130,16 +130,24 @@ namespace XafXPODynAssem.Module
         {
             if (string.IsNullOrEmpty(RuntimeConnectionString)) return;
 
-            var classes = QueryMetadata(RuntimeConnectionString);
-            if (classes.Count == 0) return;
-
-            if (!AssemblyManager.HasLoadedAssembly || AssemblyManager.RuntimeTypes.Length == 0)
+            try
             {
-                var result = AssemblyManager.LoadNewAssembly(classes);
-                if (!result.Success)
+                var classes = QueryMetadata(RuntimeConnectionString);
+                if (classes.Count == 0) return;
+
+                if (!AssemblyManager.HasLoadedAssembly || AssemblyManager.RuntimeTypes.Length == 0)
                 {
-                    Tracing.Tracer.LogError($"[EarlyBootstrap] Compilation failed: {string.Join("; ", result.Errors.Take(3))}");
+                    var result = AssemblyManager.LoadNewAssembly(classes);
+                    if (!result.Success)
+                    {
+                        Tracing.Tracer.LogError($"[EarlyBootstrap] Compilation failed: {string.Join("; ", result.Errors.Take(3))}");
+                    }
                 }
+            }
+            catch (Exception ex)
+            {
+                // Non-fatal: database may not exist yet on first run
+                Tracing.Tracer.LogText($"[EarlyBootstrap] Skipped: {ex.Message}");
             }
         }
 
