@@ -3,7 +3,6 @@ using System.Runtime.Loader;
 using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
-using XafXPODynAssem.Module.BusinessObjects;
 
 namespace XafXPODynAssem.Module.Services
 {
@@ -22,7 +21,7 @@ namespace XafXPODynAssem.Module.Services
     {
         private const string RuntimeNamespace = "XafXPODynAssem.RuntimeEntities";
 
-        public static CompilationResult ValidateCompilation(List<CustomClass> classes)
+        public static CompilationResult ValidateCompilation(List<RuntimeClassMetadata> classes)
         {
             var result = new CompilationResult();
             if (classes.Count == 0) return result;
@@ -59,7 +58,7 @@ namespace XafXPODynAssem.Module.Services
             return result;
         }
 
-        public static CompilationResult Compile(List<CustomClass> classes)
+        public static CompilationResult Compile(List<RuntimeClassMetadata> classes)
         {
             var result = new CompilationResult();
             if (classes.Count == 0)
@@ -112,7 +111,7 @@ namespace XafXPODynAssem.Module.Services
             return result;
         }
 
-        public static string GenerateSource(CustomClass cc)
+        public static string GenerateSource(RuntimeClassMetadata cc)
         {
             var sb = new StringBuilder();
             sb.AppendLine("using System;");
@@ -143,7 +142,7 @@ namespace XafXPODynAssem.Module.Services
             sb.AppendLine();
 
             // Generate properties
-            var fields = cc.AllFields
+            var fields = cc.Fields
                 .Where(f => !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .ThenBy(f => f.FieldName);
@@ -167,7 +166,7 @@ namespace XafXPODynAssem.Module.Services
             return sb.ToString();
         }
 
-        private static void EmitScalarProperty(StringBuilder sb, CustomField field)
+        private static void EmitScalarProperty(StringBuilder sb, RuntimeFieldMetadata field)
         {
             var clrType = MapToClrTypeName(field.TypeName);
             var nullable = !field.IsRequired && IsValueType(field.TypeName) ? "?" : "";
@@ -196,7 +195,7 @@ namespace XafXPODynAssem.Module.Services
             sb.AppendLine("        }");
         }
 
-        private static void EmitReferenceProperty(StringBuilder sb, CustomField field)
+        private static void EmitReferenceProperty(StringBuilder sb, RuntimeFieldMetadata field)
         {
             var refTypeName = field.ReferencedClassName;
             var backingFieldName = ToCamelCase(field.FieldName);
@@ -215,7 +214,7 @@ namespace XafXPODynAssem.Module.Services
             sb.AppendLine("        }");
         }
 
-        private static void EmitFieldAttributes(StringBuilder sb, CustomField field)
+        private static void EmitFieldAttributes(StringBuilder sb, RuntimeFieldMetadata field)
         {
             if (field.IsImmediatePostData)
                 sb.AppendLine("        [ImmediatePostData]");
@@ -231,24 +230,24 @@ namespace XafXPODynAssem.Module.Services
                 sb.AppendLine($"        [DisplayName(\"{EscapeString(field.DisplayName)}\")]");
         }
 
-        private static CustomField FindDefaultProperty(CustomClass cc)
+        private static RuntimeFieldMetadata FindDefaultProperty(RuntimeClassMetadata cc)
         {
-            var defaultField = cc.AllFields.FirstOrDefault(f => f.IsDefaultField);
+            var defaultField = cc.Fields.FirstOrDefault(f => f.IsDefaultField);
             if (defaultField != null) return defaultField;
 
-            defaultField = cc.AllFields
+            defaultField = cc.Fields
                 .Where(f => f.TypeName == "System.String" && !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .FirstOrDefault();
             if (defaultField != null) return defaultField;
 
-            return cc.AllFields
+            return cc.Fields
                 .Where(f => !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .FirstOrDefault();
         }
 
-        private static bool IsReferenceField(CustomField field)
+        private static bool IsReferenceField(RuntimeFieldMetadata field)
         {
             return !string.IsNullOrWhiteSpace(field.ReferencedClassName)
                 && (field.TypeName == "Reference" || string.IsNullOrWhiteSpace(field.TypeName));

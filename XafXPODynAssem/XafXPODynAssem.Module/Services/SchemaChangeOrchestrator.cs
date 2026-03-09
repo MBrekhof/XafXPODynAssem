@@ -1,6 +1,10 @@
 using DevExpress.ExpressApp;
 using DevExpress.ExpressApp.DC;
+using DevExpress.ExpressApp.Xpo;
 using DevExpress.Persistent.Base;
+using DevExpress.Xpo;
+using DevExpress.Xpo.DB;
+using DevExpress.Xpo.Metadata;
 
 namespace XafXPODynAssem.Module.Services
 {
@@ -65,6 +69,9 @@ namespace XafXPODynAssem.Module.Services
                 RegisterTypesInTypesInfo(result.RuntimeTypes);
                 XafXPODynAssemModule.Instance?.RefreshRuntimeTypes(result.RuntimeTypes);
 
+                // Create database tables for the new types before restart
+                UpdateDatabaseSchema(result.RuntimeTypes);
+
                 var newTypeNames = new HashSet<string>(result.RuntimeTypes.Select(t => t.Name));
                 RestartNeeded = true;
                 _previousTypeNames = newTypeNames;
@@ -81,6 +88,28 @@ namespace XafXPODynAssem.Module.Services
             finally
             {
                 _semaphore.Release();
+            }
+        }
+
+        internal static void UpdateDatabaseSchema(Type[] runtimeTypes, string connectionString = null)
+        {
+            try
+            {
+                var connStr = connectionString ?? XafXPODynAssemModule.RuntimeConnectionString;
+                if (string.IsNullOrEmpty(connStr)) return;
+
+                var dict = new ReflectionDictionary();
+                foreach (var type in runtimeTypes)
+                    dict.GetDataStoreSchema(type);
+
+                using var dataLayer = XpoDefault.GetDataLayer(connStr, dict, AutoCreateOption.DatabaseAndSchema);
+                using var session = new Session(dataLayer);
+                session.UpdateSchema();
+                Tracing.Tracer.LogText($"[SchemaOrchestrator] UpdateSchema completed for {runtimeTypes.Length} type(s)");
+            }
+            catch (Exception ex)
+            {
+                Tracing.Tracer.LogError($"[SchemaOrchestrator] UpdateSchema failed: {ex.Message}");
             }
         }
 

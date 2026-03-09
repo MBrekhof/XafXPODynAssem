@@ -1,6 +1,5 @@
 using System.Runtime.Loader;
 using Microsoft.Extensions.Logging;
-using XafXPODynAssem.Module.BusinessObjects;
 
 namespace XafXPODynAssem.Module.Services
 {
@@ -22,7 +21,7 @@ namespace XafXPODynAssem.Module.Services
 
         public bool HasLoadedAssembly => _currentResult?.Assembly != null;
 
-        public CompilationResult LoadNewAssembly(List<CustomClass> classes)
+        public CompilationResult LoadNewAssembly(List<RuntimeClassMetadata> classes)
         {
             lock (_lock)
             {

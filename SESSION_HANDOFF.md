@@ -1,8 +1,8 @@
 # Session Handoff — XafXPODynAssem
 
-## Current Status: Core Implementation Complete — Build Passes, Needs Runtime Testing
+## Current Status: Runtime Entity System Fully Working — End-to-End Verified
 
-### Session 2026-03-09 — Initial Implementation (Port from EF Core)
+### Session 2026-03-09 — Initial Implementation + Runtime Verification
 
 **What was built:**
 
@@ -13,23 +13,24 @@ All core dynamic assembly infrastructure ported from the EF Core version (`C:\Pr
    - `CustomField` — field definitions with type validation, XAF attributes, reference support
    - Both use XPO patterns: `Session` constructor, `SetPropertyValue`, `XPCollection<T>`
    - Validation rules via `RuleFromBoolProperty`
-   - `DetachedFields`/`AllFields` pattern for DTO usage in `QueryMetadata`
 
 2. **Roslyn Compilation**
    - `RuntimeAssemblyBuilder` — generates XPO-style C# source and compiles via Roslyn
    - `AssemblyGenerationManager` — manages collectible ALC lifecycle
    - `CollectibleLoadContext` — custom ALC (non-collectible for now)
+   - `RuntimeClassMetadata` / `RuntimeFieldMetadata` — lightweight DTOs for metadata (avoids XPO null Session crash)
    - Generated code uses: `BaseObject` base class, `Session` constructor, backing fields, `SetPropertyValue`
 
 3. **Orchestration**
-   - `SchemaChangeOrchestrator` — semaphore-guarded hot-load: compile → register → restart
+   - `SchemaChangeOrchestrator` — semaphore-guarded hot-load: compile → UpdateSchema → register → restart
    - `RestartService` — graceful shutdown signal
    - `SchemaUpdateHub` — SignalR hub for client notifications
    - Exit code 42 protocol in `Program.cs` + `run-server.bat`
 
 4. **Module Integration**
    - `Module.cs` — `EarlyBootstrap()`, `BootstrapRuntimeEntities()`, `QueryMetadata()`, `RefreshRuntimeTypes()`
-   - `QueryMetadata` reads directly via `SqlClient` (before XAF initializes)
+   - `QueryMetadata` reads directly via `SqlClient` (before XAF initializes), returns `RuntimeClassMetadata` DTOs
+   - `EarlyBootstrap` calls `UpdateDatabaseSchema` after compilation to create tables before XAF initializes
    - Degraded mode support when compilation fails
 
 5. **Controllers**
@@ -43,15 +44,17 @@ All core dynamic assembly infrastructure ported from the EF Core version (`C:\Pr
 **Key design decisions (XPO-specific):**
 - **No SchemaSynchronizer** — XPO's `UpdateSchema` handles DDL automatically
 - **No DynamicModelCacheKeyFactory** — XPO has no model cache to invalidate
-- **DetachedFields pattern** — XPO `XPCollection` requires a Session; detached objects (from `QueryMetadata`) use a plain `List<CustomField>` via `DetachedFields`/`AllFields` accessor
+- **DTO pattern** — `RuntimeClassMetadata`/`RuntimeFieldMetadata` used for `QueryMetadata` results (XPO's `PersistentBase(null)` crashes in 25.2)
+- **Auto UpdateSchema** — `EarlyBootstrap` and `SchemaChangeOrchestrator` both call `UpdateDatabaseSchema` after Roslyn compilation to ensure tables exist before XAF initializes
 
 **Files created/modified:**
 - `Module/BusinessObjects/CustomClass.cs` — NEW
 - `Module/BusinessObjects/CustomField.cs` — NEW
 - `Module/Services/RuntimeAssemblyBuilder.cs` — NEW
 - `Module/Services/AssemblyGenerationManager.cs` — NEW
-- `Module/Services/SchemaChangeOrchestrator.cs` — NEW
+- `Module/Services/SchemaChangeOrchestrator.cs` — NEW (includes UpdateDatabaseSchema)
 - `Module/Services/SupportedTypes.cs` — NEW
+- `Module/Services/RuntimeClassMetadata.cs` — NEW (DTO for metadata)
 - `Module/Validation/CustomClassValidation.cs` — NEW
 - `Module/Validation/CustomFieldValidation.cs` — NEW
 - `Module/Controllers/SchemaChangeController.cs` — NEW
@@ -63,6 +66,22 @@ All core dynamic assembly infrastructure ported from the EF Core version (`C:\Pr
 - `Blazor.Server/Hubs/SchemaUpdateHub.cs` — NEW
 - `run-server.bat` — NEW
 
+## End-to-End Verification (Playwright)
+
+All of the following have been verified via automated Playwright tests:
+
+1. Login as Admin (empty password)
+2. Navigate to Schema Management > Custom Class
+3. Create class "Invoice" with NavigationGroup "Billing"
+4. Add field "InvoiceNumber" (System.String)
+5. Click Deploy Schema → confirmation dialog → Yes
+6. Server shuts down (exit code 42)
+7. Restart server → EarlyBootstrap compiles Invoice → UpdateSchema creates table
+8. "Billing" navigation group appears with "Invoice" entity
+9. Invoice list view shows columns: Invoice Number, Amount, Invoice Date
+10. Create record INV-002 → persisted to database
+11. Database has Invoice table with: Oid, InvoiceNumber (nvarchar), Amount (money), InvoiceDate (datetime)
+
 ## How to Build & Run
 
 ```bash
@@ -72,30 +91,17 @@ run-server.bat
 
 Login as Admin (empty password), navigate to Schema Management, create a CustomClass with fields, click Deploy Schema.
 
-## How to Verify
+## Bugs Found and Fixed
 
-```bash
-# Build check
-dotnet build XafXPODynAssem.slnx
+1. **XPO null Session crash** — `new CustomClass(null)` in QueryMetadata crashes with NullReferenceException in XPO 25.2's `PersistentBase(Session)`. Fixed by creating `RuntimeClassMetadata`/`RuntimeFieldMetadata` DTO classes.
 
-# Runtime test (manual)
-# 1. Start via run-server.bat
-# 2. Login as Admin
-# 3. Navigate to Schema Management > Custom Class
-# 4. Create class "TestEntity" with NavigationGroup "Test"
-# 5. Add field "Name" (System.String), "Amount" (System.Decimal)
-# 6. Click Deploy Schema
-# 7. Server restarts, TestEntity appears in navigation
-# 8. Create a TestEntity record, verify fields work
-```
+2. **"Schema needs to be updated" on first load** — After Roslyn compilation, the database tables didn't exist yet. XAF tried to use the new types but XPO threw "Schema needs to be updated". Fixed by calling `UpdateDatabaseSchema()` in both `EarlyBootstrap` and `SchemaChangeOrchestrator`.
 
-## Known Issues / Not Yet Tested
+## Known Limitations
 
-- Runtime entity creation has not been tested end-to-end yet (build passes but no runtime verification)
-- XPO `UpdateSchema` behavior with Roslyn-compiled types needs verification
-- `new CustomClass(null)` / `new CustomField(null)` in `QueryMetadata` — works as DTO but may log XPO warnings
 - Non-collectible ALC — types persist in memory across hot-loads (works with process restart)
 - Server MUST be started via `run-server.bat` for deploy+restart to work
+- XAF security: Admin role has full access; custom roles need explicit type permissions for runtime entities
 
 ## Not Yet Implemented (from EF Core version)
 
@@ -105,4 +111,3 @@ dotnet build XafXPODynAssem.slnx
 - Graduation (GraduationService, GraduateController)
 - SchemaHistory audit trail
 - SchemaDiscoveryService
-- Playwright tests

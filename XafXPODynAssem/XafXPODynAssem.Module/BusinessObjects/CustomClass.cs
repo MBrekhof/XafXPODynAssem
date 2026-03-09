@@ -89,25 +89,7 @@ namespace XafXPODynAssem.Module.BusinessObjects
         [Association("CustomClass-Fields"), DevExpress.Xpo.Aggregated]
         public new XPCollection<CustomField> Fields => GetCollection<CustomField>(nameof(Fields));
 
-        [NonPersistent]
-        [Browsable(false)]
-        private List<CustomField> _detachedFields;
-
-        [NonPersistent]
-        [Browsable(false)]
-        public List<CustomField> DetachedFields => _detachedFields ??= new();
-
-        /// <summary>
-        /// Returns DetachedFields if populated (detached/DTO usage), otherwise the XPO Fields collection.
-        /// </summary>
-        [NonPersistent]
-        [Browsable(false)]
-        public IEnumerable<CustomField> AllFields =>
-            _detachedFields != null && _detachedFields.Count > 0
-                ? _detachedFields
-                : Session != null ? Fields : (_detachedFields ??= new());
-
-        [NonPersistent]
+[NonPersistent]
         [RuleFromBoolProperty("CustomClass_ValidClassName", DefaultContexts.Save,
             "Class Name must be a valid C# identifier (letters, digits, underscores; cannot start with a digit).")]
         [Browsable(false)]

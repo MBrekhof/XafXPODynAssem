@@ -142,6 +142,13 @@ namespace XafXPODynAssem.Module
                     {
                         Tracing.Tracer.LogError($"[EarlyBootstrap] Compilation failed: {string.Join("; ", result.Errors.Take(3))}");
                     }
+                    else
+                    {
+                        Tracing.Tracer.LogText($"[EarlyBootstrap] Compiled {result.RuntimeTypes.Length} runtime type(s): {string.Join(", ", result.RuntimeTypes.Select(t => t.Name))}");
+
+                        // Ensure database tables exist for the compiled types
+                        SchemaChangeOrchestrator.UpdateDatabaseSchema(result.RuntimeTypes, RuntimeConnectionString);
+                    }
                 }
             }
             catch (Exception ex)
@@ -217,9 +224,9 @@ namespace XafXPODynAssem.Module
         /// XPO stores enums as integers: CustomClassStatus.Runtime = 0.
         /// XPO uses "Oid" for the primary key, "GCRecord" for soft delete (NULL = not deleted).
         /// </summary>
-        internal static List<CustomClass> QueryMetadata(string connectionString)
+        internal static List<RuntimeClassMetadata> QueryMetadata(string connectionString)
         {
-            var classes = new List<CustomClass>();
+            var classes = new List<RuntimeClassMetadata>();
 
             using var conn = new SqlConnection(connectionString);
             conn.Open();
@@ -234,7 +241,7 @@ namespace XafXPODynAssem.Module
             }
 
             // Query all runtime classes (Status = 0 = Runtime, GCRecord IS NULL = not deleted)
-            var classMap = new Dictionary<Guid, CustomClass>();
+            var classMap = new Dictionary<Guid, RuntimeClassMetadata>();
             using (var cmd = new SqlCommand(
                 @"SELECT [Oid], [ClassName], [NavigationGroup], [Description], [Status]
                   FROM [CustomClass]
@@ -244,7 +251,7 @@ namespace XafXPODynAssem.Module
                 using var reader = cmd.ExecuteReader();
                 while (reader.Read())
                 {
-                    var cc = new CustomClass(null)
+                    var cc = new RuntimeClassMetadata
                     {
                         ClassName = reader.GetString(1),
                         NavigationGroup = reader.IsDBNull(2) ? null : reader.GetString(2),
@@ -278,7 +285,7 @@ namespace XafXPODynAssem.Module
                     var classId = reader.GetGuid(0);
                     if (classMap.TryGetValue(classId, out var cc))
                     {
-                        cc.DetachedFields.Add(new CustomField(null)
+                        cc.Fields.Add(new RuntimeFieldMetadata
                         {
                             FieldName = reader.GetString(1),
                             TypeName = reader.IsDBNull(2) ? "System.String" : reader.GetString(2),
