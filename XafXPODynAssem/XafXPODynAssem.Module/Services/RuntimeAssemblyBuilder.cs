@@ -143,7 +143,7 @@ namespace XafXPODynAssem.Module.Services
             sb.AppendLine();
 
             // Generate properties
-            var fields = cc.Fields
+            var fields = cc.AllFields
                 .Where(f => !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .ThenBy(f => f.FieldName);
@@ -233,16 +233,16 @@ namespace XafXPODynAssem.Module.Services
 
         private static CustomField FindDefaultProperty(CustomClass cc)
         {
-            var defaultField = cc.Fields.FirstOrDefault(f => f.IsDefaultField);
+            var defaultField = cc.AllFields.FirstOrDefault(f => f.IsDefaultField);
             if (defaultField != null) return defaultField;
 
-            defaultField = cc.Fields
+            defaultField = cc.AllFields
                 .Where(f => f.TypeName == "System.String" && !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .FirstOrDefault();
             if (defaultField != null) return defaultField;
 
-            return cc.Fields
+            return cc.AllFields
                 .Where(f => !string.IsNullOrWhiteSpace(f.FieldName))
                 .OrderBy(f => f.SortOrder)
                 .FirstOrDefault();
