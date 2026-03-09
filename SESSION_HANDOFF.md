@@ -103,11 +103,21 @@ Login as Admin (empty password), navigate to Schema Management, create a CustomC
 - Server MUST be started via `run-server.bat` for deploy+restart to work
 - XAF security: Admin role has full access; custom roles need explicit type permissions for runtime entities
 
-## Not Yet Implemented (from EF Core version)
+## All Features Ported from EF Core Version
 
-- Web API (OData) endpoints
-- AI Chat (AIChatService, SchemaAIToolsProvider)
-- Schema Export/Import
-- Graduation (GraduationService, GraduateController)
-- SchemaHistory audit trail
-- SchemaDiscoveryService
+All features from the EF Core version have been ported:
+
+- **SchemaHistory** — audit trail for schema changes (export/import/deploy)
+- **Graduation** — generate production XPO source code, mark entities as Compiled
+- **SchemaDiscoveryService** — type introspection, AI system prompt generation
+- **Schema Export/Import** — JSON serialization with smart merge, Blazor file download/upload
+- **Web API (OData)** — endpoints at `/api/odata` with Swagger, dynamic runtime entity exposure
+- **AI Chat** — LLM-powered schema management with 10 tool-calling functions (LlmTornado)
+
+## Needs Runtime Testing
+
+The new features build successfully but have not been runtime-tested yet:
+- AI Chat requires `AI:ApiKey` configuration in appsettings.json
+- Web API/Swagger at `/swagger` and `/api/odata`
+- Export/Import needs JS interop functions for file upload/download
+- Graduation generate + status change flow
