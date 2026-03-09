@@ -39,8 +39,16 @@ namespace XafXPODynAssem.Module.Controllers
         {
             base.OnActivated();
             UpdateActionState();
-            View.CurrentObjectChanged += (_, _) => UpdateActionState();
+            View.CurrentObjectChanged += View_CurrentObjectChanged;
         }
+
+        protected override void OnDeactivated()
+        {
+            View.CurrentObjectChanged -= View_CurrentObjectChanged;
+            base.OnDeactivated();
+        }
+
+        private void View_CurrentObjectChanged(object sender, EventArgs e) => UpdateActionState();
 
         private void UpdateActionState()
         {

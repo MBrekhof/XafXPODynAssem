@@ -34,5 +34,35 @@
     </div>
 
     <script src="_framework/blazor.server.js"></script>
+    <script>
+        window.schemaFile = {
+            download: function (fileName, content) {
+                var blob = new Blob([content], { type: 'application/json' });
+                var url = URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                URL.revokeObjectURL(url);
+            },
+            upload: function (accept) {
+                return new Promise(function (resolve) {
+                    var input = document.createElement('input');
+                    input.type = 'file';
+                    input.accept = accept || '.json';
+                    input.onchange = function () {
+                        var file = input.files[0];
+                        if (!file) { resolve(null); return; }
+                        var reader = new FileReader();
+                        reader.onload = function () { resolve(reader.result); };
+                        reader.readAsText(file);
+                    };
+                    input.click();
+                });
+            }
+        };
+    </script>
 </body>
 </html>

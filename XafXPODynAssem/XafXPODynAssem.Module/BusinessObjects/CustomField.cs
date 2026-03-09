@@ -123,6 +123,7 @@ namespace XafXPODynAssem.Module.BusinessObjects
             set => SetPropertyValue(nameof(DisplayName), ref displayName, value);
         }
 
+#pragma warning disable XAF0020
         [NonPersistent]
         [RuleFromBoolProperty("CustomField_ValidFieldName", DefaultContexts.Save,
             "Field Name must be a valid C# identifier (letters, digits, underscores; cannot start with a digit).")]
@@ -146,5 +147,6 @@ namespace XafXPODynAssem.Module.BusinessObjects
             "A Reference field requires a Referenced Class Name.")]
         [Browsable(false)]
         public bool IsReferenceClassValid => TypeName != "Reference" || !string.IsNullOrWhiteSpace(ReferencedClassName);
+#pragma warning restore XAF0020
     }
 }

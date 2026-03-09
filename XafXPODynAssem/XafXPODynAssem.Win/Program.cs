@@ -53,7 +53,7 @@ namespace XafXPODynAssem.Win
 
             var configuration = new ConfigurationBuilder()
                 .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
-                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                .AddJsonFile("appsettings.json", optional: true, reloadOnChange: false)
                 .Build();
 
             string connectionString = configuration.GetConnectionString("ConnectionString");

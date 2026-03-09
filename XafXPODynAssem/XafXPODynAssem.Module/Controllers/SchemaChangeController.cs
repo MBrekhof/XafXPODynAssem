@@ -1,5 +1,7 @@
+using System.Linq;
 using DevExpress.ExpressApp;
 using DevExpress.ExpressApp.Actions;
+using DevExpress.ExpressApp.Security;
 using DevExpress.Persistent.Base;
 using XafXPODynAssem.Module.BusinessObjects;
 using XafXPODynAssem.Module.Services;
@@ -26,6 +28,29 @@ namespace XafXPODynAssem.Module.Controllers
 
         private void DeployAction_Execute(object sender, SimpleActionExecuteEventArgs e)
         {
+            // Record deploy in schema history
+            try
+            {
+                var history = ObjectSpace.CreateObject<SchemaHistory>();
+                history.Action = SchemaChangeAction.Deploy;
+                history.UserName = SecuritySystem.CurrentUserName;
+                history.Summary = "Schema deployed via Deploy Schema action";
+
+                // Capture current runtime class names
+                var classes = ObjectSpace.GetObjects<CustomClass>()
+                    .Cast<CustomClass>()
+                    .Where(c => c.Status == CustomClassStatus.Runtime)
+                    .Select(c => c.ClassName)
+                    .ToList();
+                history.Details = $"Runtime classes: {string.Join(", ", classes)}";
+
+                ObjectSpace.CommitChanges();
+            }
+            catch (Exception ex)
+            {
+                Tracing.Tracer.LogError($"Failed to record deploy history: {ex.Message}");
+            }
+
             _ = Task.Run(async () =>
             {
                 try

@@ -832,7 +832,7 @@ public sealed class SchemaAIToolsProvider
 
                 // Use the AddTypePermission approach via reflection
                 var addMethod = roleType.GetMethods()
-                    .FirstOrDefault(m => m.Name == "AddTypePermissionsRecursively" && m.GetParameters().Length == 2 && !m.IsGenericMethod);
+                    .FirstOrDefault(m => m.Name == "AddTypePermissionsRecursively" && m.GetParameters().Length == 3 && !m.IsGenericMethod);
 
                 if (addMethod != null)
                 {

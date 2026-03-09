@@ -13,9 +13,17 @@ namespace XafXPODynAssem.Module.Controllers
         protected override void OnActivated()
         {
             base.OnActivated();
-            View.CurrentObjectChanged += (_, _) => ShowWarningIfGraduated();
+            View.CurrentObjectChanged += View_CurrentObjectChanged;
             ShowWarningIfGraduated();
         }
+
+        protected override void OnDeactivated()
+        {
+            View.CurrentObjectChanged -= View_CurrentObjectChanged;
+            base.OnDeactivated();
+        }
+
+        private void View_CurrentObjectChanged(object sender, EventArgs e) => ShowWarningIfGraduated();
 
         private void ShowWarningIfGraduated()
         {
@@ -49,8 +57,16 @@ namespace XafXPODynAssem.Module.Controllers
         protected override void OnActivated()
         {
             base.OnActivated();
-            View.CollectionSource.CollectionChanged += (_, _) => CheckForGraduatedEntities();
+            View.CollectionSource.CollectionChanged += CollectionSource_CollectionChanged;
         }
+
+        protected override void OnDeactivated()
+        {
+            View.CollectionSource.CollectionChanged -= CollectionSource_CollectionChanged;
+            base.OnDeactivated();
+        }
+
+        private void CollectionSource_CollectionChanged(object sender, EventArgs e) => CheckForGraduatedEntities();
 
         protected override void OnViewControlsCreated()
         {

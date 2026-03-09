@@ -87,9 +87,12 @@ namespace XafXPODynAssem.Module.BusinessObjects
         }
 
         [Association("CustomClass-Fields"), DevExpress.Xpo.Aggregated]
+#pragma warning disable XAF0002
         public new XPCollection<CustomField> Fields => GetCollection<CustomField>(nameof(Fields));
+#pragma warning restore XAF0002
 
-[NonPersistent]
+#pragma warning disable XAF0020
+        [NonPersistent]
         [RuleFromBoolProperty("CustomClass_ValidClassName", DefaultContexts.Save,
             "Class Name must be a valid C# identifier (letters, digits, underscores; cannot start with a digit).")]
         [Browsable(false)]
@@ -106,5 +109,6 @@ namespace XafXPODynAssem.Module.BusinessObjects
             "Class Name conflicts with a built-in type name.")]
         [Browsable(false)]
         public bool IsClassNameNotReserved => string.IsNullOrWhiteSpace(ClassName) || !CustomClassValidation.IsReservedTypeName(ClassName);
+#pragma warning restore XAF0020
     }
 }

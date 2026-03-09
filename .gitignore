@@ -16,7 +16,7 @@ obj/
 ## Secrets (API keys in dev config)
 appsettings.Development.json
 **/appsettings.Development.json
-XafXPODynAssem.Win/appsettings.json
+**/XafXPODynAssem.Win/appsettings.json
 
 ## OS
 Thumbs.db
