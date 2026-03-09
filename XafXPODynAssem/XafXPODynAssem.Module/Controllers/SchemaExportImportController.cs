@@ -16,7 +16,7 @@ namespace XafXPODynAssem.Module.Controllers
         {
             TargetObjectType = typeof(CustomClass);
 
-            _exportAction = new SimpleAction(this, "ExportSchema", "SchemaManagement")
+            _exportAction = new SimpleAction(this, "ExportSchema", PredefinedCategory.Edit)
             {
                 Caption = "Export Schema",
                 ImageName = "Action_Export",
@@ -24,7 +24,7 @@ namespace XafXPODynAssem.Module.Controllers
             };
             _exportAction.Execute += ExportAction_Execute;
 
-            _importAction = new SimpleAction(this, "ImportSchema", "SchemaManagement")
+            _importAction = new SimpleAction(this, "ImportSchema", PredefinedCategory.Edit)
             {
                 Caption = "Import Schema",
                 ImageName = "Action_Import",

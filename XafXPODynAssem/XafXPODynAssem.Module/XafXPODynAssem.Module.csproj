@@ -32,6 +32,8 @@
     <PackageReference Include="DevExpress.ExpressApp.Xpo" Version="25.2.3" />
     <PackageReference Include="DevExpress.Persistent.Base" Version="25.2.3" />
     <PackageReference Include="DevExpress.Persistent.BaseImpl.Xpo" Version="25.2.3" />
+    <PackageReference Include="HtmlSanitizer" Version="9.0.892" />
+    <PackageReference Include="Markdig" Version="1.1.1" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.10.0" />
     <PackageReference Include="Azure.Identity" Version="1.17.1" />
     <PackageReference Include="Microsoft.Data.SqlClient" Version="6.1.2" />

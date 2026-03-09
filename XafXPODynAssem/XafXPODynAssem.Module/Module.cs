@@ -127,6 +127,12 @@ namespace XafXPODynAssem.Module
             CalculatedPersistentAliasHelper.CustomizeTypesInfo(typesInfo);
         }
 
+        public override void AddGeneratorUpdaters(ModelNodesGeneratorUpdaters updaters)
+        {
+            base.AddGeneratorUpdaters(updaters);
+            updaters.Add(new AIChatDetailViewUpdater());
+        }
+
         /// <summary>
         /// Compile runtime types early (before XAF initializes).
         /// Safe to call multiple times — skips if already compiled.

@@ -17,6 +17,7 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="DevExpress.AIIntegration.Blazor.Chat" Version="25.2.3" />
     <PackageReference Include="DevExpress.Drawing.Skia" Version="25.2.3" />
     <PackageReference Include="DevExpress.ExpressApp.Blazor" Version="25.2.3" />
     <PackageReference Include="DevExpress.ExpressApp.CodeAnalysis" Version="25.2.3" />
