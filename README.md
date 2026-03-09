@@ -4,6 +4,16 @@ Runtime entity creation for DevExpress XAF applications using XPO persistence. D
 
 **Not EAV** — generates real CLR types via Roslyn with real SQL columns and FK constraints.
 
+## Features
+
+- **Runtime entity creation** — define classes and fields through the XAF UI, deploy with one click
+- **AI Chat** — LLM-powered schema management with 10 tool-calling functions (create/modify/delete entities, manage permissions)
+- **Web API / OData** — REST endpoints at `/api/odata` with Swagger UI for runtime and compiled entities
+- **Schema Export/Import** — JSON serialization with smart merge for backup and migration
+- **Graduation** — generate production XPO C# source code from runtime entities
+- **Audit Trail** — `SchemaHistory` records every deploy, export, and import action
+- **WinForms + Blazor** — both platforms supported with shared Module
+
 ## How It Works
 
 1. **Define** entity metadata (class name, fields, types) through the UI
@@ -29,14 +39,32 @@ dotnet run --project XafXPODynAssem/XafXPODynAssem.Blazor.Server -- --updateData
 
 **Default credentials:** Admin / (empty password)
 
+### AI Chat Setup
+
+Copy the template and add your API key:
+
+```bash
+# Blazor Server
+cp XafXPODynAssem/XafXPODynAssem.Blazor.Server/appsettings.Development.template.json \
+   XafXPODynAssem/XafXPODynAssem.Blazor.Server/appsettings.Development.json
+
+# WinForms
+cp XafXPODynAssem/XafXPODynAssem.Win/appsettings.template.json \
+   XafXPODynAssem/XafXPODynAssem.Win/appsettings.json
+```
+
+Edit the copied files and replace `YOUR_API_KEY_HERE` with your Anthropic API key. These files are gitignored.
+
 ## Tech Stack
 
 - .NET 8 / C#
 - DevExpress XAF 25.2 + XPO
 - Roslyn (`Microsoft.CodeAnalysis.CSharp` 4.10)
 - SQL Server (localdb)
-- Blazor Server
+- Blazor Server + WinForms
 - SignalR (schema change notifications)
+- LlmTornado (multi-provider LLM client for AI Chat)
+- OData / Swagger (Web API)
 
 ## Architecture
 
@@ -67,17 +95,27 @@ This is a port of [XafDynamicAssemblies](https://github.com/MBrekhof/XafDynamicA
 
 ```
 XafXPODynAssem.Module/
-  BusinessObjects/     CustomClass, CustomField (metadata)
+  BusinessObjects/     CustomClass, CustomField, SchemaHistory, AIChat
   Services/            RuntimeAssemblyBuilder, AssemblyGenerationManager,
-                       SchemaChangeOrchestrator, SupportedTypes
-  Controllers/         SchemaChangeController (Deploy), CustomFieldDetailController
+                       SchemaChangeOrchestrator, SupportedTypes,
+                       GraduationService, SchemaExportImportService,
+                       SchemaDiscoveryService, AIChatService,
+                       SchemaAIToolsProvider, TornadoApiProvider
+  Controllers/         SchemaChangeController (Deploy),
+                       SchemaExportImportController (Export/Import),
+                       GraduateController, GraduationWarningController,
+                       CustomFieldDetailController
   Validation/          Name/type validation helpers
 
 XafXPODynAssem.Blazor.Server/
-  Startup.cs           Bootstrap wiring, SignalR, restart logic
+  Startup.cs           Bootstrap wiring, SignalR, Web API/OData, AI services
   Program.cs           Exit code 42 restart protocol
   Hubs/                SchemaUpdateHub (SignalR)
-  Services/            RestartService
+  Services/            RestartService, BlazorSchemaFileService
+
+XafXPODynAssem.Win/
+  Startup.cs           WinForms app builder with AI services
+  Program.cs           IConfiguration loading, EarlyBootstrap
 ```
 
 ## How to Implement (Step by Step)

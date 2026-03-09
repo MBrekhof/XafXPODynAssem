@@ -23,6 +23,7 @@ This approach generates **real CLR types** via Roslyn compilation -- not EAV (En
 5. [Customization Points](#5-customization-points)
 6. [Troubleshooting](#6-troubleshooting)
 7. [Limitations](#7-limitations)
+8. [Additional Features](#8-additional-features)
 
 ---
 
@@ -1384,8 +1385,8 @@ The following features are **not yet supported** in this implementation:
 | **Collection/association properties** | Not supported | Only scalar and single-reference properties are generated. `XPCollection<T>` back-references would require two-way metadata. |
 | **Inheritance** | Not supported | All generated classes inherit directly from `BaseObject`. No support for class hierarchies among runtime entities. |
 | **Computed/calculated properties** | Not supported | All properties are persistent storage fields. `PersistentAlias` or non-persistent calculated properties are not generated. |
-| **Custom business logic** | Not supported | Generated classes have no methods, only properties. Consider the "Graduation" pattern (converting runtime entities to compiled source code) for complex logic. |
-| **Web API / OData** | Not implemented | Runtime entities are only accessible through the Blazor UI. REST API exposure requires additional wiring. |
+| **Custom business logic** | Graduation available | Generated classes have no methods, only properties. Use the built-in Graduation feature to generate production C# source code for complex logic. |
+| **Web API / OData** | Implemented | Runtime entities marked with `IsApiExposed` are available at `/api/odata` with Swagger UI at `/swagger`. |
 | **Multi-database** | Not supported | All runtime entities use the same connection string as the main application. |
 | **Schema migration** | Additive only | XPO `UpdateSchema` creates new tables/columns but does not rename or drop existing ones. Renaming a class or field creates a new column and the old one remains. |
 | **Concurrent deploy** | Semaphore-guarded | Only one deploy can run at a time (30-second timeout on the semaphore). |
@@ -1395,3 +1396,47 @@ The following features are **not yet supported** in this implementation:
 - Runtime entities inherit the XAF security system. However, you may need to grant permissions for new types via the Role editor after they are created.
 - The `QueryMetadata` method constructs SQL with string concatenation of Guid values (from the `classIds` variable). These are Guid primary keys read from the database, not user input, so SQL injection risk is minimal -- but consider parameterized queries if you extend this.
 - Class and field names are validated to be legal C# identifiers, which prevents code injection through the Roslyn compilation step.
+
+---
+
+## 8. Additional Features
+
+The reference implementation (`XafXPODynAssem`) includes several features beyond the core runtime entity system described above. These are optional and can be added independently.
+
+### 8.1 Graduation
+
+Generate production-ready XPO C# source code from a runtime entity. After graduation, the entity is marked as `Compiled` and excluded from future runtime compilation. The generated source includes proper XPO patterns (`Session` constructor, `SetPropertyValue`, backing fields) and can be added directly to your project.
+
+**Key files:** `GraduationService.cs`, `GraduateController.cs`, `GraduationWarningController.cs`
+
+### 8.2 Schema Export/Import
+
+Export all runtime entity metadata as a JSON file for backup or migration between environments. Import supports smart merge — new classes are created, existing classes are updated with new fields.
+
+**Key files:** `SchemaExportImportService.cs`, `SchemaExportImportController.cs`, `ISchemaFileService.cs`, `BlazorSchemaFileService.cs`
+
+**Blazor note:** Requires JS interop functions (`schemaFile.download` and `schemaFile.upload`) in `_Host.cshtml` for file download/upload.
+
+### 8.3 Web API / OData
+
+Expose runtime entities as OData REST endpoints at `/api/odata` with Swagger UI at `/swagger`. Entities are exposed when the `IsApiExposed` flag is set on the `CustomClass` metadata.
+
+**Key files:** `Startup.cs` (Web API registration), `CustomClass.IsApiExposed` property
+
+**NuGet:** `DevExpress.ExpressApp.WebApi`, `Swashbuckle.AspNetCore`
+
+### 8.4 AI Chat
+
+LLM-powered schema management using tool-calling (function calling). The AI assistant can create, modify, and delete entities, manage role permissions, and answer questions about the current schema. Uses LlmTornado for multi-provider LLM support.
+
+**Key files:** `AIChatService.cs`, `SchemaAIToolsProvider.cs`, `TornadoApiProvider.cs`, `SchemaDiscoveryService.cs`, `AIChat.cs`, `AIServiceCollectionExtensions.cs`
+
+**NuGet:** `LlmTornado`, `Microsoft.Extensions.AI`, `Microsoft.Extensions.AI.Abstractions`
+
+**Configuration:** Requires an `AI` section in `appsettings.json` with API key. See `appsettings.template.json` or `appsettings.Development.template.json` for the required structure.
+
+### 8.5 Audit Trail
+
+Every deploy, export, and import action creates a `SchemaHistory` record with timestamp, user, action type, summary, and optional schema JSON snapshot.
+
+**Key files:** `SchemaHistory.cs` (business object), `SchemaChangeController.cs` (deploy logging), `SchemaExportImportController.cs` (export/import logging)
