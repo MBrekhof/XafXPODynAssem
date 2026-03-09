@@ -1,9 +1,10 @@
-﻿using DevExpress.ExpressApp;
+using DevExpress.ExpressApp;
 using DevExpress.ExpressApp.Blazor.DesignTime;
 using DevExpress.ExpressApp.Blazor.Services;
 using DevExpress.ExpressApp.Design;
 using DevExpress.ExpressApp.Utils;
 using System.Reflection;
+using XafXPODynAssem.Blazor.Server.Services;
 
 namespace XafXPODynAssem.Blazor.Server
 {
@@ -32,17 +33,25 @@ namespace XafXPODynAssem.Blazor.Server
             {
                 DevExpress.ExpressApp.FrameworkSettings.DefaultSettingsCompatibilityMode = DevExpress.ExpressApp.FrameworkSettingsCompatibilityMode.Latest;
                 DevExpress.ExpressApp.Security.SecurityStrategy.AutoAssociationReferencePropertyMode = DevExpress.ExpressApp.Security.ReferenceWithoutAssociationPermissionsMode.AllMembers;
-                IHost host = CreateHostBuilder(args).Build();
+
                 if (ContainsArgument(args, "updateDatabase"))
                 {
-                    using (var serviceScope = host.Services.CreateScope())
+                    var dbHost = CreateHostBuilder(args).Build();
+                    using (var serviceScope = dbHost.Services.CreateScope())
                     {
                         return serviceScope.ServiceProvider.GetRequiredService<DevExpress.ExpressApp.Utils.IDBUpdater>().Update(ContainsArgument(args, "forceUpdate"), ContainsArgument(args, "silent"));
                     }
                 }
-                else
+
+                // Run the host. Deploy Schema triggers exit code 42 for restart.
+                RestartService.ResetRestartFlag();
+                IHost host = CreateHostBuilder(args).Build();
+                host.Run();
+
+                if (RestartService.IsRestartRequested)
                 {
-                    host.Run();
+                    Console.WriteLine("[RESTART] Process exiting for restart (exit code 42)...");
+                    return 42;
                 }
             }
             return 0;

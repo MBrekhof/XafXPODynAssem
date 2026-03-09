@@ -1,4 +1,4 @@
-﻿using DevExpress.ExpressApp.ApplicationBuilder;
+using DevExpress.ExpressApp.ApplicationBuilder;
 using DevExpress.ExpressApp.Blazor.ApplicationBuilder;
 using DevExpress.ExpressApp.Blazor.Services;
 using DevExpress.ExpressApp.Security;
@@ -7,6 +7,8 @@ using DevExpress.Persistent.Base;
 using DevExpress.Persistent.BaseImpl.PermissionPolicy;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.SignalR;
+using XafXPODynAssem.Blazor.Server.Hubs;
 using XafXPODynAssem.Blazor.Server.Services;
 
 namespace XafXPODynAssem.Blazor.Server
@@ -20,8 +22,6 @@ namespace XafXPODynAssem.Blazor.Server
 
         public IConfiguration Configuration { get; }
 
-        // This method gets called by the runtime. Use this method to add services to the container.
-        // For more information on how to configure your application, visit https://go.microsoft.com/fwlink/?LinkID=398940
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton(typeof(Microsoft.AspNetCore.SignalR.HubConnectionHandler<>), typeof(ProxyHubConnectionHandler<>));
@@ -30,6 +30,14 @@ namespace XafXPODynAssem.Blazor.Server
             services.AddServerSideBlazor();
             services.AddHttpContextAccessor();
             services.AddScoped<CircuitHandler, CircuitHandlerProxy>();
+
+            // Set connection string for runtime entity bootstrap (before XAF initializes)
+            XafXPODynAssem.Module.XafXPODynAssemModule.RuntimeConnectionString =
+                Configuration.GetConnectionString("ConnectionString");
+
+            // Early bootstrap: compile runtime types before XAF init
+            XafXPODynAssem.Module.XafXPODynAssemModule.EarlyBootstrap();
+
             services.AddXaf(Configuration, builder =>
             {
                 builder.UseApplication<XafXPODynAssemBlazorApplication>();
@@ -79,23 +87,12 @@ namespace XafXPODynAssem.Blazor.Server
                     .UseIntegratedMode(options =>
                     {
                         options.Lockout.Enabled = true;
-
                         options.RoleType = typeof(PermissionPolicyRole);
-                        // ApplicationUser descends from PermissionPolicyUser and supports the OAuth authentication. For more information, refer to the following topic: https://docs.devexpress.com/eXpressAppFramework/402197
-                        // If your application uses PermissionPolicyUser or a custom user type, set the UserType property as follows:
                         options.UserType = typeof(XafXPODynAssem.Module.BusinessObjects.ApplicationUser);
-                        // ApplicationUserLoginInfo is only necessary for applications that use the ApplicationUser user type.
-                        // If you use PermissionPolicyUser or a custom user type, comment out the following line:
                         options.UserLoginInfoType = typeof(XafXPODynAssem.Module.BusinessObjects.ApplicationUserLoginInfo);
                         options.UseXpoPermissionsCaching();
                         options.Events.OnSecurityStrategyCreated += securityStrategy =>
                         {
-                            // Use the 'PermissionsReloadMode.NoCache' option to load the most recent permissions from the database once
-                            // for every Session instance when secured data is accessed through this instance for the first time.
-                            // Use the 'PermissionsReloadMode.CacheOnFirstAccess' option to reduce the number of database queries.
-                            // In this case, permission requests are loaded and cached when secured data is accessed for the first time
-                            // and used until the current user logs out.
-                            // See the following article for more details: https://docs.devexpress.com/eXpressAppFramework/DevExpress.ExpressApp.Security.SecurityStrategy.PermissionsReloadMode.
                             ((SecurityStrategy)securityStrategy).PermissionsReloadMode = PermissionsReloadMode.NoCache;
                         };
                     })
@@ -114,7 +111,6 @@ namespace XafXPODynAssem.Blazor.Server
             });
         }
 
-        // This method gets called by the runtime. Use this method to configure the HTTP request pipeline.
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
         {
             if (env.IsDevelopment())
@@ -124,7 +120,6 @@ namespace XafXPODynAssem.Blazor.Server
             else
             {
                 app.UseExceptionHandler("/Error");
-                // The default HSTS value is 30 days. To change this for production scenarios, see: https://aka.ms/aspnetcore-hsts.
                 app.UseHsts();
             }
             app.UseHttpsRedirection();
@@ -139,9 +134,34 @@ namespace XafXPODynAssem.Blazor.Server
             {
                 endpoints.MapXafEndpoints();
                 endpoints.MapBlazorHub();
+                endpoints.MapHub<SchemaUpdateHub>("/schemaUpdateHub");
                 endpoints.MapFallbackToPage("/_Host");
                 endpoints.MapControllers();
             });
+
+            // Wire RestartService for graceful shutdown
+            var lifetime = app.ApplicationServices.GetRequiredService<IHostApplicationLifetime>();
+            RestartService.Configure(lifetime);
+
+            // Wire schema change orchestrator to SignalR hub + exit code 42 restart
+            var hubContext = app.ApplicationServices.GetRequiredService<IHubContext<SchemaUpdateHub>>();
+            var orchestrator = XafXPODynAssem.Module.Services.SchemaChangeOrchestrator.Instance;
+            orchestrator.SchemaChanged += (version) =>
+            {
+                var needsRestart = orchestrator.RestartNeeded;
+
+                _ = hubContext.Clients.All.SendAsync("SchemaChanged", version, needsRestart);
+
+                if (needsRestart)
+                {
+                    _ = Task.Run(async () =>
+                    {
+                        await Task.Delay(3000);
+                        Console.WriteLine("[RESTART] Force-exiting for restart (exit code 42)...");
+                        Environment.Exit(42);
+                    });
+                }
+            };
         }
     }
 }
