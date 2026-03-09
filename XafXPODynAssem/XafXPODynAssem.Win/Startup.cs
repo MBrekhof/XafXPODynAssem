@@ -8,20 +8,22 @@ using DevExpress.Persistent.Base;
 using DevExpress.Persistent.BaseImpl;
 using DevExpress.Persistent.BaseImpl.PermissionPolicy;
 using DevExpress.XtraEditors;
-using System.Configuration;
+using Microsoft.Extensions.Configuration;
+using XafXPODynAssem.Module.Services;
 
 namespace XafXPODynAssem.Win
 {
     public class ApplicationBuilder : IDesignTimeApplicationFactory
     {
-        public static WinApplication BuildApplication(string connectionString)
+        public static WinApplication BuildApplication(string connectionString, IConfiguration configuration = null)
         {
             var builder = WinApplication.CreateBuilder();
-            // Register custom services for Dependency Injection. For more information, refer to the following topic: https://docs.devexpress.com/eXpressAppFramework/404430/
-            // builder.Services.AddScoped<CustomService>();
-            // Register 3rd-party IoC containers (like Autofac, Dryloc, etc.)
-            // builder.UseServiceProviderFactory(new DryIocServiceProviderFactory());
-            // builder.UseServiceProviderFactory(new AutofacServiceProviderFactory());
+
+            // Register AI services when configuration is available
+            if (configuration != null)
+            {
+                builder.Services.AddAIServices(configuration);
+            }
 
             builder.UseApplication<XafXPODynAssemWindowsFormsApplication>();
             builder.Modules

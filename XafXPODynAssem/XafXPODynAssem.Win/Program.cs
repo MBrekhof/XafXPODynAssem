@@ -1,15 +1,11 @@
-﻿using DevExpress.ExpressApp;
-using DevExpress.ExpressApp.ApplicationBuilder;
+using DevExpress.ExpressApp;
 using DevExpress.ExpressApp.Security;
 using DevExpress.ExpressApp.Utils;
 using DevExpress.ExpressApp.Win;
-using DevExpress.ExpressApp.Win.ApplicationBuilder;
 using DevExpress.ExpressApp.Win.Utils;
 using DevExpress.Persistent.Base;
-using DevExpress.Persistent.BaseImpl;
-using DevExpress.Persistent.BaseImpl.PermissionPolicy;
 using DevExpress.XtraEditors;
-using System.Configuration;
+using Microsoft.Extensions.Configuration;
 using System.Reflection;
 
 namespace XafXPODynAssem.Win
@@ -55,18 +51,22 @@ namespace XafXPODynAssem.Win
             }
             Tracing.Initialize();
 
-            string connectionString = null;
-            if (ConfigurationManager.ConnectionStrings["ConnectionString"] != null)
-            {
-                connectionString = ConfigurationManager.ConnectionStrings["ConnectionString"].ConnectionString;
-            }
+            var configuration = new ConfigurationBuilder()
+                .SetBasePath(AppDomain.CurrentDomain.BaseDirectory)
+                .AddJsonFile("appsettings.json", optional: false, reloadOnChange: false)
+                .Build();
+
+            string connectionString = configuration.GetConnectionString("ConnectionString");
 #if EASYTEST
-            if(ConfigurationManager.ConnectionStrings["EasyTestConnectionString"] != null) {
-                connectionString = ConfigurationManager.ConnectionStrings["EasyTestConnectionString"].ConnectionString;
-            }
+            connectionString = configuration.GetConnectionString("EasyTestConnectionString") ?? connectionString;
 #endif
             ArgumentNullException.ThrowIfNull(connectionString);
-            var winApplication = ApplicationBuilder.BuildApplication(connectionString);
+
+            // Set connection string and bootstrap runtime entities before XAF initializes
+            XafXPODynAssem.Module.XafXPODynAssemModule.RuntimeConnectionString = connectionString;
+            XafXPODynAssem.Module.XafXPODynAssemModule.EarlyBootstrap();
+
+            var winApplication = ApplicationBuilder.BuildApplication(connectionString, configuration);
 
             if (ContainsArgument(args, "updateDatabase"))
             {

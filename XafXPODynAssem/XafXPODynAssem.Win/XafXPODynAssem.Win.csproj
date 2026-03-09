@@ -19,6 +19,11 @@
     <None Remove="Images\Logo.svg" />
   </ItemGroup>
   <ItemGroup>
+    <Content Include="appsettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+  </ItemGroup>
+  <ItemGroup>
     <Content Include="Model.xafml">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
@@ -47,6 +52,8 @@
     <PackageReference Include="DevExpress.Persistent.BaseImpl.Xpo" Version="25.2.3" />
     <PackageReference Include="DevExpress.RichEdit.Export" Version="25.2.3" />
     <PackageReference Include="DevExpress.Win.Design" Version="25.2.3" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.FileExtensions" Version="8.0.1" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Json" Version="8.0.1" />
     
   </ItemGroup>
   <ItemGroup>
