@@ -5,6 +5,7 @@ namespace XafXPODynAssem.Module.Services
         public string ClassName { get; set; }
         public string NavigationGroup { get; set; }
         public string Description { get; set; }
+        public bool IsApiExposed { get; set; }
         public List<RuntimeFieldMetadata> Fields { get; set; } = new();
     }
 

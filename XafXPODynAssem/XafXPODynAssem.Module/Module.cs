@@ -21,6 +21,8 @@ namespace XafXPODynAssem.Module
 
         public static XafApplication CurrentApplication { get; private set; }
 
+        public static HashSet<string> ApiExposedClassNames { get; private set; } = new();
+
         public static bool DegradedMode { get; private set; }
 
         public static string DegradedModeReason { get; private set; }
@@ -34,6 +36,7 @@ namespace XafXPODynAssem.Module
             CurrentApplication = null;
             DegradedMode = false;
             DegradedModeReason = null;
+            ApiExposedClassNames = new();
 
             XafTypesInfo.HardReset();
             ClearSharedModelManagerCache();
@@ -85,6 +88,8 @@ namespace XafXPODynAssem.Module
             AdditionalExportedTypes.Add(typeof(DevExpress.Persistent.BaseImpl.HCategory));
             AdditionalExportedTypes.Add(typeof(BusinessObjects.CustomClass));
             AdditionalExportedTypes.Add(typeof(BusinessObjects.CustomField));
+            AdditionalExportedTypes.Add(typeof(BusinessObjects.SchemaHistory));
+            AdditionalExportedTypes.Add(typeof(BusinessObjects.AIChat));
             RequiredModuleTypes.Add(typeof(DevExpress.ExpressApp.SystemModule.SystemModule));
             RequiredModuleTypes.Add(typeof(DevExpress.ExpressApp.Security.SecurityModule));
             RequiredModuleTypes.Add(typeof(DevExpress.ExpressApp.ConditionalAppearance.ConditionalAppearanceModule));
@@ -134,6 +139,10 @@ namespace XafXPODynAssem.Module
             {
                 var classes = QueryMetadata(RuntimeConnectionString);
                 if (classes.Count == 0) return;
+
+                // Track API-exposed class names
+                ApiExposedClassNames = new HashSet<string>(
+                    classes.Where(c => c.IsApiExposed).Select(c => c.ClassName));
 
                 if (!AssemblyManager.HasLoadedAssembly || AssemblyManager.RuntimeTypes.Length == 0)
                 {
@@ -195,6 +204,13 @@ namespace XafXPODynAssem.Module
                 RefreshRuntimeTypes(runtimeTypes);
                 SchemaChangeOrchestrator.Instance.SetKnownTypeNames(runtimeTypes.Select(t => t.Name));
 
+                // Populate API-exposed class names (in case EarlyBootstrap wasn't called)
+                if (ApiExposedClassNames.Count == 0)
+                {
+                    ApiExposedClassNames = new HashSet<string>(
+                        classes.Where(c => c.IsApiExposed).Select(c => c.ClassName));
+                }
+
                 Tracing.Tracer.LogText($"Runtime entities bootstrapped: {string.Join(", ", runtimeTypes.Select(t => t.Name))}");
             }
             catch (Exception ex)
@@ -243,7 +259,7 @@ namespace XafXPODynAssem.Module
             // Query all runtime classes (Status = 0 = Runtime, GCRecord IS NULL = not deleted)
             var classMap = new Dictionary<Guid, RuntimeClassMetadata>();
             using (var cmd = new SqlCommand(
-                @"SELECT [Oid], [ClassName], [NavigationGroup], [Description], [Status]
+                @"SELECT [Oid], [ClassName], [NavigationGroup], [Description], [Status], [IsApiExposed]
                   FROM [CustomClass]
                   WHERE [Status] = 0 AND [GCRecord] IS NULL",
                 conn))
@@ -256,6 +272,7 @@ namespace XafXPODynAssem.Module
                         ClassName = reader.GetString(1),
                         NavigationGroup = reader.IsDBNull(2) ? null : reader.GetString(2),
                         Description = reader.IsDBNull(3) ? null : reader.GetString(3),
+                        IsApiExposed = !reader.IsDBNull(5) && reader.GetBoolean(5),
                     };
                     var id = reader.GetGuid(0);
                     classMap[id] = cc;

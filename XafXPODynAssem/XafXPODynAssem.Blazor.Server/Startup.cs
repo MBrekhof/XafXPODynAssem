@@ -2,14 +2,19 @@ using DevExpress.ExpressApp.ApplicationBuilder;
 using DevExpress.ExpressApp.Blazor.ApplicationBuilder;
 using DevExpress.ExpressApp.Blazor.Services;
 using DevExpress.ExpressApp.Security;
+using DevExpress.ExpressApp.WebApi.Services;
 using DevExpress.ExpressApp.Xpo;
 using DevExpress.Persistent.Base;
 using DevExpress.Persistent.BaseImpl.PermissionPolicy;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Components.Server.Circuits;
+using Microsoft.AspNetCore.OData;
 using Microsoft.AspNetCore.SignalR;
+using Microsoft.OpenApi.Models;
 using XafXPODynAssem.Blazor.Server.Hubs;
 using XafXPODynAssem.Blazor.Server.Services;
+using XafXPODynAssem.Module.BusinessObjects;
+using XafXPODynAssem.Module.Services;
 
 namespace XafXPODynAssem.Blazor.Server
 {
@@ -25,6 +30,8 @@ namespace XafXPODynAssem.Blazor.Server
         public void ConfigureServices(IServiceCollection services)
         {
             services.AddSingleton(typeof(Microsoft.AspNetCore.SignalR.HubConnectionHandler<>), typeof(ProxyHubConnectionHandler<>));
+
+            services.AddScoped<ISchemaFileService, BlazorSchemaFileService>();
 
             services.AddRazorPages();
             services.AddServerSideBlazor();
@@ -109,6 +116,44 @@ namespace XafXPODynAssem.Blazor.Server
             {
                 options.LoginPath = "/LoginPage";
             });
+
+            services.AddXafWebApi(Configuration, options =>
+            {
+                // Always expose metadata entities
+                options.BusinessObject<CustomClass>();
+                options.BusinessObject<CustomField>();
+                options.BusinessObject<SchemaHistory>();
+
+                // Expose runtime entities marked with IsApiExposed
+                var apiClassNames = XafXPODynAssem.Module.XafXPODynAssemModule.ApiExposedClassNames;
+                foreach (var type in XafXPODynAssem.Module.XafXPODynAssemModule.AssemblyManager.RuntimeTypes)
+                {
+                    if (apiClassNames.Contains(type.Name))
+                    {
+                        options.BusinessObject(type);
+                    }
+                }
+            });
+
+            services.AddControllers().AddOData((options, serviceProvider) =>
+            {
+                options
+                    .AddRouteComponents("api/odata", new EdmModelBuilder(serviceProvider).GetEdmModel())
+                    .EnableQueryFeatures(100);
+            });
+
+            services.AddAIServices(Configuration);
+
+            services.AddSwaggerGen(c =>
+            {
+                c.EnableAnnotations();
+                c.SwaggerDoc("v1", new OpenApiInfo
+                {
+                    Title = "XafXPODynAssem API",
+                    Version = "v1",
+                    Description = "OData REST API for runtime and compiled entities"
+                });
+            });
         }
 
         public void Configure(IApplicationBuilder app, IWebHostEnvironment env)
@@ -116,6 +161,11 @@ namespace XafXPODynAssem.Blazor.Server
             if (env.IsDevelopment())
             {
                 app.UseDeveloperExceptionPage();
+                app.UseSwagger();
+                app.UseSwaggerUI(c =>
+                {
+                    c.SwaggerEndpoint("/swagger/v1/swagger.json", "XafXPODynAssem API v1");
+                });
             }
             else
             {
