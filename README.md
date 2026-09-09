@@ -128,4 +128,4 @@ See [`SESSION_HANDOFF.md`](SESSION_HANDOFF.md) for current status, what was buil
 
 ## License
 
-This project uses DevExpress components which require a valid DevExpress license.
+The project code is released under the [MIT License](LICENSE). It depends on DevExpress XAF, which requires a separate commercial license from DevExpress.
